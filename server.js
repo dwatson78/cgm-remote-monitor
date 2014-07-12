@@ -20,6 +20,7 @@
 var patientData = [];
 var now = new Date().getTime();
 var fs = require('fs');
+var express = require('express');
 var mongoClient = require('mongodb').MongoClient;
 var pebble = require('./lib/pebble');
 var cgmData = [];
@@ -28,34 +29,52 @@ var cgmData = [];
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // setup http server
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-
 //var PORT = process.env.PORT || 1337;
-var PORT = 81;
+var PORT = process.env.PORT || 81;
+var THIRTY_DAYS = 2592000;
+var now = new Date();
+var STATIC_DIR = __dirname + '/static/';
 
-var server = require('http').createServer(function serverCreator(request, response) {
-    var nodeStatic = require('node-static');
-    var staticServer = new nodeStatic.Server(".");
-    var sys = require("sys");
-    // Grab the URL requested by the client and parse any query options
-    var url = require('url').parse(request.url, true);
-    if (url.path.indexOf('/pebble') === 0) {
-      request.with_collection = with_collection;
-      pebble.pebble(request, response);
-      return;
+var app = express();
+app.set('title', 'Nightscout');
+
+// serve special URLs
+// Pebble API
+app.get("/pebble", servePebble);
+
+// define static server
+var server = express.static(STATIC_DIR, {maxAge: THIRTY_DAYS * 1000});
+
+// serve the static content
+app.use(server);
+
+// handle errors
+app.use(errorHandler);
+
+var server = app.listen(PORT);
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// server helper functions
+////////////////////////////////////////////////////////////////////////////////////////////////////
+function errorHandler(err, req, res, next) {
+    if (err) {
+        // Log the error
+        var msg = "Error serving " + request.url + " - " + err.message;
+        require("sys").error(msg);
+        console.log(msg);
+
+        // Respond to the client
+        res.status(err.status);
+        res.render('error', { error: err });
     }
+}
 
-    // Serve file using node-static
-    staticServer.serve(request, response, function clientHandler(err) {
-        if (err) {
-            // Log the error
-            sys.error("Error serving " + request.url + " - " + err.message);
-
-            // Respond to the client
-            response.writeHead(err.status, err.headers);
-            response.end('Error 404 - file not found');
-        }
-    });
-}).listen(PORT);
+function servePebble(req, res) {
+    req.with_collection = with_collection;
+    pebble.pebble(req, res);
+    return;
+}
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -104,6 +123,23 @@ DB.collection = DB.collection || process.env.CUSTOMCONNSTR_mongo_collection;
 var DB_URL = DB.url;
 var DB_COLLECTION = DB.collection;
 
+var dir2Char = {
+  'NONE': '&#8700;',
+  'DoubleUp': '&#8648;',
+  'SingleUp': '&#8593;',
+  'FortyFiveUp': '&#8599;',
+  'Flat': '&#8594;',
+  'FortyFiveDown': '&#8600;',
+  'SingleDown': '&#8595;',
+  'DoubleDown': '&#8650;',
+  'NOT COMPUTABLE': '-',
+  'RATE OUT OF RANGE': '&#8622;'
+};
+
+function directionToChar(direction) {
+  return dir2Char[direction] || '-';
+}
+
 var Alarm = function(_typeName, _threshold) {
     this.typeName = _typeName;
     this.silenceTime = FORTY_MINUTES;
@@ -142,7 +178,7 @@ function update() {
                     obj.y = element.sgv;
                     obj.x = element.date;
                     obj.d = element.dateString;
-                    obj.t = element.trend;
+                    obj.direction = directionToChar(element.trend);
                     cgmData.push(obj);
                 }
             });
@@ -218,12 +254,12 @@ function loadData() {
         patientData = [actual, predicted, mbg, treatment];
         io.sockets.emit("now", now);
         io.sockets.emit("sgv", patientData);
-        io.sockets.emit("trend", actual[actualLength].t);
 
         // compute current loss
         var avgLoss = 0;
-        for (var i = 0; i <= 6; i++) {
-            avgLoss += 1 / 6 * Math.pow(log10(predicted[i].y / 120), 2);
+        var size = Math.min(predicted.length - 1, 6);
+        for (var j = 0; j <= size; j++) {
+            avgLoss += 1 / size * Math.pow(log10(predicted[j].y / 120), 2);
         }
 
         if (avgLoss > alarms['urgent_alarm'].threshold) {
@@ -231,12 +267,17 @@ function loadData() {
         } else if (avgLoss > alarms['alarm'].threshold) {
             emitAlarm('alarm');
         }
-
     }
 }
 
 // get data from database and setup to update every minute
-setInterval(update(), ONE_MINUTE);
+function kickstart ( ) {
+  //TODO: test server to see how data is stored (timestamps, entry values, etc)
+  //TODO: check server settings to configure alerts, entry units, etc
+  update( );
+  return update;
+}
+setInterval(kickstart(), ONE_MINUTE);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 

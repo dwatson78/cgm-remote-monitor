@@ -1,4 +1,4 @@
 {
-    "url": null,
-    "collection": null
+    "url": "mongodb://10.0.5.56:27017/cgm",
+    "collection": "cgmtest1"
 }

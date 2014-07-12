@@ -22,10 +22,14 @@
         FOCUS_DATA_RANGE_MS = 12600000;  // 3.5 hours of actual data
 
     // create svg and g to contain the chart contents
-    var charts = d3.select('#chartContainer').append('svg')
-        .append('g')
-        .attr('class', 'chartContainer')
-        .attr('transform', 'translate(' + padding.left + ',' + padding.top + ')');
+    var charts = d3.select('#chartContainer')
+        .append('svg')
+          .attr('width','100%')
+          .attr('height','350px')
+          .attr('style','clear:both;')
+          .append('g')
+            .attr('class', 'chartContainer')
+            .attr('transform', 'translate(' + padding.left + ',' + padding.top + ')');
 
     var focus = charts.append('g');
 
@@ -314,9 +318,9 @@
                 focus.append('line')
                     .attr('class', 'high-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale(180))
+                    .attr('y1', yScale(300))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale(180))
+                    .attr('y2', yScale(300))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -360,9 +364,9 @@
                 context.append('line')
                     .attr('class', 'high-line')
                     .attr('x1', xScale(dataRange[0]))
-                    .attr('y1', yScale2(180))
+                    .attr('y1', yScale2(300))
                     .attr('x2', xScale(dataRange[1]))
-                    .attr('y2', yScale2(180))
+                    .attr('y2', yScale2(300))
                     .style('stroke-dasharray', ('3, 3'))
                     .attr('stroke', 'grey');
 
@@ -417,9 +421,9 @@
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale(currentBrushExtent[0]))
-                    .attr('y1', yScale(180))
+                    .attr('y1', yScale(300))
                     .attr('x2', xScale(currentBrushExtent[1]))
-                    .attr('y2', yScale(180));
+                    .attr('y2', yScale(300));
 
                 // transition low line to correct location
                 focus.select('.low-line')
@@ -462,9 +466,9 @@
                     .transition()
                     .duration(UPDATE_TRANS_MS)
                     .attr('x1', xScale2(dataRange[0]))
-                    .attr('y1', yScale2(180))
+                    .attr('y1', yScale2(300))
                     .attr('x2', xScale2(dataRange[1]))
-                    .attr('y2', yScale2(180));
+                    .attr('y2', yScale2(300));
 
                 // transition low line to correct location
                 context.select('.low-line')
@@ -562,11 +566,11 @@
         $('#currentTime').text(d3.time.format('%I:%M%p')(dateTime));
 
         // Dim the screen by reducing the opacity when at nighttime
-        if (opacity.current != opacity.NIGHT && (dateTime.getHours() > 21 || dateTime.getHours() < 7 )) {
+        /*if (opacity.current != opacity.NIGHT && (dateTime.getHours() > 21 || dateTime.getHours() < 7 )) {
             $('body').css({'opacity': opacity.NIGHT});
         } else {
             $('body').css({'opacity': opacity.DAY});
-        }
+        }*/
     });
 
     socket.on('sgv', function (d) {
@@ -576,7 +580,7 @@
                 $('#currentBG').text(d[0][d[0].length - 1].y);
                 $('#bgValue').text(d[0][d[0].length - 1].y);
             }
-            data = d[0].map(function (obj) { return { date: new Date(obj.x), sgv: obj.y, color: 'grey'} });
+            data = d[0].map(            function (obj) { return { date: new Date(obj.x), sgv: obj.y, color: 'grey'} });
             data = data.concat(d[1].map(function (obj) { return { date: new Date(obj.x), sgv: obj.y, color: 'blue'} }));
             data = data.concat(d[2].map(function (obj) { return { date: new Date(obj.x), sgv: obj.y, color: 'red'} }));
             treatments = d[3];
@@ -616,6 +620,14 @@
     socket.on('clients', function(watchers) {
         console.log('number of clients has changed to ' + watchers);
         $('#watchers').text(watchers);
+    });
+    socket.on('trend', function (d) {
+		console.log("trend");
+		if(d != null && d.length > 0)
+	    {
+            console.log("trend: " + d);
+			$('#trendValue').text(d);
+		}
     });
 
     // load alarms

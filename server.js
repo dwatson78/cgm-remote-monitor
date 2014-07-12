@@ -28,7 +28,10 @@ var cgmData = [];
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // setup http server
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-var PORT = process.env.PORT || 1337;
+
+//var PORT = process.env.PORT || 1337;
+var PORT = 81;
+
 var server = require('http').createServer(function serverCreator(request, response) {
     var nodeStatic = require('node-static');
     var staticServer = new nodeStatic.Server(".");
@@ -139,6 +142,7 @@ function update() {
                     obj.y = element.sgv;
                     obj.x = element.date;
                     obj.d = element.dateString;
+                    obj.t = element.trend;
                     cgmData.push(obj);
                 }
             });
@@ -214,6 +218,7 @@ function loadData() {
         patientData = [actual, predicted, mbg, treatment];
         io.sockets.emit("now", now);
         io.sockets.emit("sgv", patientData);
+        io.sockets.emit("trend", actual[actualLength].t);
 
         // compute current loss
         var avgLoss = 0;
@@ -226,6 +231,7 @@ function loadData() {
         } else if (avgLoss > alarms['alarm'].threshold) {
             emitAlarm('alarm');
         }
+
     }
 }
 
